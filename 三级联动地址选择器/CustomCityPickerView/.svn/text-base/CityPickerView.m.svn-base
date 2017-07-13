@@ -1,0 +1,206 @@
+//
+//  CityPickerView.m
+//  SugeText
+//
+//  Created by suge on 16/8/17.
+//  Copyright © 2016年 素格. All rights reserved.
+//
+
+#import "CityPickerView.h"
+
+@implementation CityPickerView
+
+- (instancetype)initWithFrame:(CGRect)frame
+{
+    self = [super initWithFrame:frame];
+    if (self) {
+        //从plist文件中获取数据源
+        [self getDataSourceFromPlist];
+        //初始化pickerView
+        [self initPickerViewWithRect:frame];
+        //初始化取消和确定按钮
+        [self createCancelAndSureButton];
+        
+    }
+    return self;
+}
+#pragma mark - 初始化取消和确定按钮
+- (void)createCancelAndSureButton
+{
+    //取消按钮
+    _cancelButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    _cancelButton.frame = CGRectMake(10,10, 40, 25);
+    [_cancelButton setTitle:@"取消" forState:UIControlStateNormal];
+//    [_cancelButton setTitleColor:[UIColor grayColor] forState:UIControlStateNormal];
+//    _cancelButton.layer.borderColor = [[UIColor lightGrayColor] CGColor];
+//    _cancelButton.layer.borderWidth = 1.0;
+    [self addSubview:_cancelButton];
+    //确定按钮
+    _sureButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    _sureButton.frame = CGRectMake(SCREEN_WIDTH - 40 - 10,10, 40, 25);
+    [_sureButton setTitle:@"确定" forState:UIControlStateNormal];
+//    [_sureButton setTitleColor:[UIColor grayColor] forState:UIControlStateNormal];
+//    _sureButton.layer.borderColor = [[UIColor lightGrayColor] CGColor];
+    [_sureButton addTarget:self action:@selector(sendCityData) forControlEvents:UIControlEventTouchUpInside];
+//    _sureButton.layer.borderWidth = 1.0;
+    [self addSubview:_sureButton];
+    
+    LineView *line = [[LineView alloc] initWithColor:[UIColor colorFromHexRGB:@"e6e6e6"] andFrame:CGRectMake(0, CGRectGetMaxY(_sureButton.frame)+10, SCREEN_WIDTH, 1)];
+    [self addSubview:line];
+}
+#pragma mark - 从plist文件中获取数据
+- (void)getDataSourceFromPlist
+{
+    
+    NSArray *path = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    
+    //获取完整路径
+    NSString *documentsPath = [path objectAtIndex:0];
+    NSString *plistPath = [documentsPath stringByAppendingPathComponent:@"address.plist"];
+    
+    
+    //    NSString *path = [[NSBundle mainBundle]pathForResource:@"area" ofType:@"plist"];
+    //总数据文件
+    _arrayRoot = [[NSArray alloc]initWithContentsOfFile:plistPath];
+    
+    
+    //存放省份的数组
+    _arrayProvince = [[NSMutableArray alloc] initWithCapacity:0];
+    [self.arrayRoot enumerateObjectsUsingBlock:^(NSDictionary *obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        [self.arrayProvince addObject:obj[@"province"]];
+    }];
+    
+    NSMutableArray *citys = [NSMutableArray arrayWithArray:[self.arrayRoot firstObject][@"citys"]];
+    //存放城市的数组
+    _arrayCity = [[NSMutableArray alloc] initWithCapacity:0];
+    [citys enumerateObjectsUsingBlock:^(NSDictionary *obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        [self.arrayCity addObject:obj[@"city"]];
+    }];
+    //存放地区的数组
+    _arrayArea = [[NSMutableArray alloc] initWithCapacity:0];
+    _arrayArea = [citys firstObject][@"area"];
+}
+#pragma mark - 初始化pickerView
+- (void)initPickerViewWithRect:(CGRect)frame
+{
+    self.backgroundColor = [UIColor lightGrayColor];
+    _cityPicker = [[UIPickerView alloc]initWithFrame:CGRectMake(0, 35 + 10 + 1,SCREEN_WIDTH, frame.size.height - 40)];
+    _cityPicker.delegate = self;
+    _cityPicker.dataSource = self;
+    _cityPicker.showsSelectionIndicator = YES;
+    
+    [self addSubview:_cityPicker];
+    
+    _cityPicker.backgroundColor = [UIColor clearColor];
+    //    //显示默认城市
+    //    [self reloadData];
+}
+#pragma mark - 确定按钮的点击事件
+- (void)sendCityData
+{
+    //显示默认城市
+    [self reloadData];
+}
+- (void)reloadData
+{
+    NSInteger index0 = [self.cityPicker selectedRowInComponent:0];
+    NSInteger index1 = [self.cityPicker selectedRowInComponent:1];
+    NSInteger index2 = [self.cityPicker selectedRowInComponent:2];
+    self.province = self.arrayProvince[index0];
+    self.city = self.arrayCity[index1];
+    if (self.arrayArea.count != 0) {
+        self.area = self.arrayArea[index2];
+    }else{
+        self.area = @"";
+    }
+    
+    NSString *title = [NSString stringWithFormat:@"%@%@%@", self.province, self.city, self.area];
+    if ([_Delegate respondsToSelector:@selector(selectedProvinceAndCityAndArea:)]) {
+        [_Delegate selectedProvinceAndCityAndArea:title];
+    }
+    self.cityLabel.text = title;
+    
+}
+#pragma mark - 设置列宽
+- (CGFloat)pickerView:(UIPickerView *)pickerView widthForComponent:(NSInteger)component
+{
+    return 100;//100
+}
+#pragma mark - 行高
+- (CGFloat)pickerView:(UIPickerView *)pickerView rowHeightForComponent:(NSInteger)component
+{
+    return 40;
+}
+#pragma mark - 返回显示的列数
+- (NSInteger)numberOfComponentsInPickerView:(UIPickerView *)pickerView
+{
+    return 3;
+}
+#pragma mark - 返回当前列显示的行数
+- (NSInteger)pickerView:(UIPickerView *)pickerView numberOfRowsInComponent:(NSInteger)component{
+    
+    if (component == 0) {
+        return _arrayProvince.count;
+    }
+    else if (component == 1) {
+        return _arrayCity.count;
+    }
+    else {
+        return _arrayArea.count;
+    }
+}
+- (UIView *)pickerView:(UIPickerView *)pickerView viewForRow:(NSInteger)row forComponent:(NSInteger)component reusingView:(nullable UIView *)view
+{
+    
+    NSString *text;
+    if (component == 0) {
+        text =  self.arrayProvince[row];
+    }else if (component == 1){
+        text =  self.arrayCity[row];
+    }else{
+        if (self.arrayArea.count > 0) {
+            text = self.arrayArea[row];
+        }else{
+            text =  @"";
+        }
+    }
+    UILabel *label = [[UILabel alloc]init];
+    [label setTextAlignment:NSTextAlignmentCenter];
+    [label setFont:[UIFont systemFontOfSize:17]];
+    [label setText:text];
+    return label;
+}
+
+- (void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component
+{
+    if (component == 0) {
+        self.arraySelected = self.arrayRoot[row][@"citys"];
+        
+        [self.arrayCity removeAllObjects];
+        [self.arraySelected enumerateObjectsUsingBlock:^(NSDictionary *obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            [self.arrayCity addObject:obj[@"city"]];
+        }];
+        
+        self.arrayArea = [NSMutableArray arrayWithArray:[self.arraySelected firstObject][@"area"]];
+        
+        [pickerView reloadComponent:1];
+        [pickerView reloadComponent:2];
+        [pickerView selectRow:0 inComponent:1 animated:YES];
+        [pickerView selectRow:0 inComponent:2 animated:YES];
+        
+    }else if (component == 1) {
+        if (self.arraySelected.count == 0) {
+            self.arraySelected = [self.arrayRoot firstObject][@"citys"];
+        }
+        
+        self.arrayArea = [NSMutableArray arrayWithArray:[self.arraySelected objectAtIndex:row][@"area"]];
+        
+        [pickerView reloadComponent:2];
+        [pickerView selectRow:0 inComponent:2 animated:YES];
+        
+    }else{
+    }
+    //    [self reloadData];
+}
+
+@end
